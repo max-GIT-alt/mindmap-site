@@ -1,0 +1,9 @@
+# Python artefacts
+__pycache__/
+*.py[cod]
+.venv/
+
+# Logs & OS cruft
+logs/
+*.log
+.DS_Store
