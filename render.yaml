@@ -1,0 +1,7 @@
+# mindmap-site/render.yaml
+services:
+  - type: static            # tells Render this is a CDN-backed static site
+    name: mindmap-site      # appears in the Render dashboard URL
+    plan: free              # free instance is fine for pure HTML/CSS/JS
+    buildCommand: ""        # nothing to build
+    staticPublishPath: "."  # publish everything in the repository root
