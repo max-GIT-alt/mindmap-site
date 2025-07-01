@@ -1,7 +1,7 @@
-# render.yaml
+# 100 % static-site service  – simplest
 services:
-  - type: static              # <— the key bit
+  - type: static           # <- critical: “static”, not “web”
     name: mindmap-site
     plan: free
-    buildCommand: ""          # no build step
-    staticPublishPath: "."    # root folder contains index.html
+    buildCommand: ""       # no build step
+    staticPublishPath: "." # repo root contains index.html
