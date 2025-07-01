@@ -1,0 +1,2433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Interactive Mind-Map</title>
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <style>
+    html, body {
+      width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;
+      font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+      background: linear-gradient(120deg, #f8f9fa 60%, #e3e9f0 100%);
+    }
+    #mynetwork { width: 100%; height: 100%; }
+    .header {
+      width: 100vw;
+      background: #2B7CE9;
+      color: #fff;
+      padding: 18px 0 12px 0;
+      font-size: 1.7rem;
+      font-weight: 600;
+      text-align: left;
+      letter-spacing: 1px;
+      box-shadow: 0 2px 12px rgba(43,124,233,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 100;
+    }
+    .header .user-menu {
+      margin-right: 32px;
+      font-size: 1.1rem;
+      font-weight: 400;
+      background: rgba(255,255,255,0.12);
+      border-radius: 8px;
+      padding: 6px 18px;
+      color: #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .controls {
+      position: absolute; top: 70px; left: 10px; z-index: 10;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 14px 18px; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+      display: flex; gap: 16px; align-items: center;
+      font-size: 15px;
+    }
+    .controls input[type="text"] {
+      border: 1px solid #bfc9d1; padding: 8px; border-radius: 6px; font-size: 15px;
+      background: #f6f8fa;
+    }
+    .nav-controls {
+      display: flex; flex-direction: row; gap: 4px; margin-left: 10px;
+      align-items: center;
+    }
+    .nav-btn {
+      width: 32px; height: 32px; border: none; background: #e9ecef; border-radius: 6px; font-size: 18px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s, box-shadow 0.2s;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    }
+    .nav-btn:hover { background: #d0d7de; box-shadow: 0 2px 8px rgba(0,0,0,0.10); }
+    .plus-btn {
+      position: absolute; z-index: 20; background: #fff; border: 1px solid #aaa; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
+    .view-source-btn {
+      position: absolute; z-index: 20; background: #fff; border: 1px solid #aaa; border-radius: 4px; padding: 4px 8px; font-size: 13px; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
+    .vis-network .vis-label {
+      text-align: center !important;
+      white-space: pre-line !important;
+    }
+    .map-type-select {
+      font-size: 15px; border-radius: 6px; border: 1px solid #bfc9d1; padding: 4px 10px; background: #f6f8fa;
+    }
+    .depth-slider {
+      width: 120px; margin-left: 10px;
+    }
+    .depth-label {
+      font-size: 14px; margin-left: 4px; color: #555;
+    }
+    .disabled-option {
+      color: #aaa;
+      background: #f0f0f0;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="header">
+    <span style="margin-left:32px;">AI Concept Mind Map</span>
+    <div class="user-menu">
+      <span id="user-name">User</span>
+      <button style="background:none;border:none;color:#fff;cursor:pointer;font-size:1rem;" onclick="alert('Profile/Logout coming soon!')">Menu</button>
+    </div>
+  </div>
+  <div class="controls">
+    <label for="concept-index">Concept Index:</label>
+    <select id="concept-index" style="min-width:180px;"></select>
+    <label for="search-input">Search:</label>
+    <input type="text" id="search-input" placeholder="Find concept...">
+    <button id="search-confirm-btn" style="margin-left:2px;padding:4px 10px;border-radius:5px;border:1px solid #aaa;background:#f6f8fa;cursor:pointer;font-size:1.1em;">&#8594;</button>
+    <button id="find-source-btn" class="view-source-btn" style="position:static;display:inline-block;margin-left:8px;">Find Source</button>
+    <div id="find-source-popup" style="display:none;position:absolute;z-index:1000;min-width:260px;max-width:400px;background:#fff;border:1px solid #aaa;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,0.18);padding:12px 16px;top:60px;left:220px;"></div>
+    <select id="find-source-dropdown" style="display:none;min-width:200px;margin-left:8px;"></select>
+    <label for="map-type-select">Map Type:</label>
+    <select id="map-type-select" class="map-type-select">
+      <option value="academic">Academic</option>
+      <option value="news">News</option>
+      <option value="all">All</option>
+    </select>
+    <label for="depth-slider" class="depth-label">Visual Depth:</label>
+    <input type="range" min="1" max="5" value="5" id="depth-slider" class="depth-slider">
+    <span id="depth-value" class="depth-label">5</span>
+    <div class="nav-controls">
+      <button class="nav-btn" id="pan-left" title="Pan Left">&#8592;</button>
+      <button class="nav-btn" id="pan-up" title="Pan Up">&#8593;</button>
+      <button class="nav-btn" id="center-view" title="Center View">&#9679;</button>
+      <button class="nav-btn" id="pan-down" title="Pan Down">&#8595;</button>
+      <button class="nav-btn" id="pan-right" title="Pan Right">&#8594;</button>
+      <button class="nav-btn" id="zoom-in" title="Zoom In">+</button>
+      <button class="nav-btn" id="zoom-out" title="Zoom Out">-</button>
+    </div>
+  </div>
+  <div id="mynetwork"></div>
+  <script>
+    // ---------- data injected by Python ----------
+    const nodesData = new vis.DataSet([
+  {
+    "id": 1,
+    "label": "reinforcement learning with verifiable rewards (rlvr)",
+    "value": 2,
+    "title": "Canonical: reinforcement learning with verifiable rewards (rlvr)\nSynonyms: reinforcement learning (rl), reinforcement learning with verifiable rewards (rlvr)",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "reinforcement learning with verifiable rewards (rlvr)",
+      "reinforcement learning (rl)"
+    ],
+    "sources": []
+  },
+  {
+    "id": 2,
+    "label": "absolute zero reasoner (azr)",
+    "value": 1,
+    "title": "Canonical: absolute zero reasoner (azr)\nSynonyms: absolute zero reasoner (azr)",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "absolute zero reasoner (azr)"
+    ],
+    "sources": []
+  },
+  {
+    "id": 3,
+    "label": "self-play",
+    "value": 1,
+    "title": "Canonical: self-play\nSynonyms: self-play",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "self-play"
+    ],
+    "sources": [
+      {
+        "title": "Absolute Zero: Reinforced Self-play Reasoning with Zero Data",
+        "url": "local://Absolute Zero: Reinforced Self-play Reasoning with Zero Data.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "SPARQ: Synthetic Problem Generation for Reasoning via Quality-Diversity Algorithms",
+        "url": "local://SPARQ: Synthetic Problem Generation for Reasoning\nvia Quality-Diversity Algorithms.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Synthetic Data RL: Task Definition Is All You Need",
+        "url": "local://Synthetic Data RL: Task Definition Is All You Need.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Darwin G\u00f6del Machine: Open-Ended Evolution of Self-Improving Agents",
+        "url": "local://Darwin G\u00f6del Machine:\nOpen-Ended Evolution of Self-Improving Agents.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Can Large Reasoning Models Self-Train?",
+        "url": "local://Can Large Reasoning Models Self-Train?\n.txt",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "label": "unified source of verifiable reward",
+    "value": 2,
+    "title": "Canonical: unified source of verifiable reward\nSynonyms: unified source of verifiable reward, verifiable rewards",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "unified source of verifiable reward",
+      "verifiable rewards"
+    ],
+    "sources": [
+      {
+        "title": "Absolute Zero: Reinforced Self-play Reasoning with Zero Data",
+        "url": "local://Absolute Zero: Reinforced Self-play Reasoning with Zero Data.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Understanding Self-Evolution in LLM Agents via Multi-Turn Reinforcement Learning",
+        "url": "local://Understanding Self-Evolution in LLM Agents via\nMulti-Turn Reinforcement Learning.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Does Reinforcement Learning Really Incentivize Reasoning Capacity in LLMs Beyond the Base Model",
+        "url": "local://Does Reinforcement Learning Really Incentivize Reasoning\nCapacity in LLMs Beyond the Base Model.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Self-Adapting Language Models",
+        "url": "local://Self-Adapting Language Models.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Reinforcing General Reasoning without Verifiers",
+        "url": "local://Reinforcing General Reasoning without Verifiers.txt",
+        "category": "academic"
+      },
+      {
+        "title": "The Entropy Mechanism of Reinforcement Learning for Reasoning Language Models",
+        "url": "local://The Entropy Mechanism of Reinforcement Learning for\nReasoning Language Models.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Reinforcement Learning Teachers of Test Time Scaling",
+        "url": "local://Reinforcement Learning Teachers of Test Time Scaling.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Can Large Reasoning Models Self-Train?",
+        "url": "local://Can Large Reasoning Models Self-Train?\n.txt",
+        "category": "academic"
+      },
+      {
+        "title": "the-illusion-of-thinking",
+        "url": "local://the-illusion-of-thinking.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "ProRL: Prolonged Reinforcement Learning Expands Reasoning Boundaries in Large Language Models",
+        "url": "local://ProRL: Prolonged Reinforcement Learning Expands\nReasoning Boundaries in Large Language Models.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "label": "open-ended settings",
+    "value": 1,
+    "title": "Canonical: open-ended settings\nSynonyms: open-ended settings",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "open-ended settings"
+    ],
+    "sources": [
+      {
+        "title": "Absolute Zero: Reinforced Self-play Reasoning with Zero Data",
+        "url": "local://Absolute Zero: Reinforced Self-play Reasoning with Zero Data.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "label": "absolute zero",
+    "value": 1,
+    "title": "Canonical: absolute zero\nSynonyms: absolute zero",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "absolute zero"
+    ],
+    "sources": [
+      {
+        "title": "Absolute Zero: Reinforced Self-play Reasoning with Zero Data",
+        "url": "local://Absolute Zero: Reinforced Self-play Reasoning with Zero Data.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "label": "reasoning models",
+    "value": 7,
+    "title": "Canonical: reasoning models\nSynonyms: large reasoning models, reasoning capacity, reasoning language models, reasoning models, reasoning regimes, reasoning-intensive retrieval, reinforcing general reasoning",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "reasoning models",
+      "reasoning capacity",
+      "reasoning-intensive retrieval",
+      "reinforcing general reasoning",
+      "reasoning language models",
+      "reasoning regimes",
+      "large reasoning models"
+    ],
+    "sources": [
+      {
+        "title": "Absolute Zero: Reinforced Self-play Reasoning with Zero Data",
+        "url": "local://Absolute Zero: Reinforced Self-play Reasoning with Zero Data.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Does Reinforcement Learning Really Incentivize Reasoning Capacity in LLMs Beyond the Base Model",
+        "url": "local://Does Reinforcement Learning Really Incentivize Reasoning\nCapacity in LLMs Beyond the Base Model.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Self-Adapting Language Models",
+        "url": "local://Self-Adapting Language Models.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Reinforcing General Reasoning without Verifiers",
+        "url": "local://Reinforcing General Reasoning without Verifiers.txt",
+        "category": "academic"
+      },
+      {
+        "title": "ReasonIR: Training Retrievers for Reasoning Tasks",
+        "url": "local://ReasonIR: Training Retrievers for Reasoning Tasks.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "ZEROSEARCH: Incentivize the Search Capability of LLMs without Searching",
+        "url": "local://ZEROSEARCH: Incentivize the Search Capability\nof LLMs without Searching.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "SophiaVL-R1: Reinforcing MLLMs Reasoning with Thinking Reward",
+        "url": "local://SophiaVL-R1: Reinforcing MLLMs Reasoning with Thinking Reward\n.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Reinforcement Learning Teachers of Test Time Scaling",
+        "url": "local://Reinforcement Learning Teachers of Test Time Scaling.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Can Large Reasoning Models Self-Train?",
+        "url": "local://Can Large Reasoning Models Self-Train?\n.txt",
+        "category": "academic"
+      },
+      {
+        "title": "the-illusion-of-thinking",
+        "url": "local://the-illusion-of-thinking.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "ProRL: Prolonged Reinforcement Learning Expands Reasoning Boundaries in Large Language Models",
+        "url": "local://ProRL: Prolonged Reinforcement Learning Expands\nReasoning Boundaries in Large Language Models.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Synthetic Data RL: Task Definition Is All You Need",
+        "url": "local://Synthetic Data RL: Task Definition Is All You Need.txt",
+        "category": "academic"
+      },
+      {
+        "title": "The Entropy Mechanism of Reinforcement Learning for Reasoning Language Models",
+        "url": "local://The Entropy Mechanism of Reinforcement Learning for\nReasoning Language Models.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Diffusion vs. Autoregressive Language Models: A Text Embedding Perspective",
+        "url": "local://Diffusion vs. Autoregressive Language Models:\nA Text Embedding Perspective.txt",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 8,
+    "label": "large language models (llms)",
+    "value": 2,
+    "title": "Canonical: large language models (llms)\nSynonyms: large language model (llm) agents, large language models (llms)",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "large language models (llms)",
+      "large language model (llm) agents"
+    ],
+    "sources": []
+  },
+  {
+    "id": 9,
+    "label": "unified model",
+    "value": 1,
+    "title": "Canonical: unified model\nSynonyms: unified model",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "unified model"
+    ],
+    "sources": [
+      {
+        "title": "Absolute Zero: Reinforced Self-play Reasoning with Zero Data",
+        "url": "local://Absolute Zero: Reinforced Self-play Reasoning with Zero Data.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Reinforcing General Reasoning without Verifiers",
+        "url": "local://Reinforcing General Reasoning without Verifiers.txt",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 10,
+    "label": "complex harmonics decomposition (charm)",
+    "value": 1,
+    "title": "Canonical: complex harmonics decomposition (charm)\nSynonyms: complex harmonics decomposition (charm)",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "complex harmonics decomposition (charm)"
+    ],
+    "sources": []
+  },
+  {
+    "id": 11,
+    "label": "critical brain dynamics",
+    "value": 1,
+    "title": "Canonical: critical brain dynamics\nSynonyms: critical brain dynamics",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "critical brain dynamics"
+    ],
+    "sources": [
+      {
+        "title": "Complex harmonics reveal low-dimensional manifolds of critical brain dynamics",
+        "url": "local://Complex harmonics reveal low-dimensional manifolds of critical brain dynamics.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 12,
+    "label": "nonlocal interactions",
+    "value": 2,
+    "title": "Canonical: nonlocal interactions\nSynonyms: nonlocal interactions, nonlocality",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "nonlocal interactions",
+      "nonlocality"
+    ],
+    "sources": [
+      {
+        "title": "Complex harmonics reveal low-dimensional manifolds of critical brain dynamics",
+        "url": "local://Complex harmonics reveal low-dimensional manifolds of critical brain dynamics.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "On the creation of narrow AI: hierarchy and nonlocality of neural network skills",
+        "url": "local://On the creation of narrow AI:\nhierarchy and nonlocality of neural network skills.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 13,
+    "label": "long-range connections",
+    "value": 1,
+    "title": "Canonical: long-range connections\nSynonyms: long-range connections",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "long-range connections"
+    ],
+    "sources": [
+      {
+        "title": "Complex harmonics reveal low-dimensional manifolds of critical brain dynamics",
+        "url": "local://Complex harmonics reveal low-dimensional manifolds of critical brain dynamics.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 14,
+    "label": "low-dimensional manifolds",
+    "value": 2,
+    "title": "Canonical: low-dimensional manifolds\nSynonyms: low-dimensional manifold reduction, low-dimensional manifolds",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "low-dimensional manifolds",
+      "low-dimensional manifold reduction"
+    ],
+    "sources": [
+      {
+        "title": "Complex harmonics reveal low-dimensional manifolds of critical brain dynamics",
+        "url": "local://Complex harmonics reveal low-dimensional manifolds of critical brain dynamics.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 23,
+    "label": "open-ended yet grounded environment",
+    "value": 1,
+    "title": "Canonical: open-ended yet grounded environment\nSynonyms: open-ended yet grounded environment",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "open-ended yet grounded environment"
+    ],
+    "sources": [
+      {
+        "title": "Absolute Zero: Reinforced Self-play Reasoning with Zero Data",
+        "url": "local://Absolute Zero: Reinforced Self-play Reasoning with Zero Data.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 24,
+    "label": "schr\u00f6dinger's wave equation",
+    "value": 1,
+    "title": "Canonical: schr\u00f6dinger's wave equation\nSynonyms: schr\u00f6dinger's wave equation",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "schr\u00f6dinger's wave equation"
+    ],
+    "sources": []
+  },
+  {
+    "id": 35,
+    "label": "agent distillation",
+    "value": 1,
+    "title": "Canonical: agent distillation\nSynonyms: agent distillation",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "agent distillation"
+    ],
+    "sources": [
+      {
+        "title": "AGENTDISTILL: TRAINING-FREE AGENT DISTILLATION WITH GENERALIZABLE MCP BOXES",
+        "url": "local://AGENTDISTILL: TRAINING-FREE AGENT DISTILLATION WITH\nGENERALIZABLE MCP BOXES.txt",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 37,
+    "label": "teacher agent",
+    "value": 1,
+    "title": "Canonical: teacher agent\nSynonyms: teacher agent",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "teacher agent"
+    ],
+    "sources": [
+      {
+        "title": "AGENTDISTILL: TRAINING-FREE AGENT DISTILLATION WITH GENERALIZABLE MCP BOXES",
+        "url": "local://AGENTDISTILL: TRAINING-FREE AGENT DISTILLATION WITH\nGENERALIZABLE MCP BOXES.txt",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 38,
+    "label": "student agent",
+    "value": 1,
+    "title": "Canonical: student agent\nSynonyms: student agent",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "student agent"
+    ],
+    "sources": [
+      {
+        "title": "AGENTDISTILL: TRAINING-FREE AGENT DISTILLATION WITH GENERALIZABLE MCP BOXES",
+        "url": "local://AGENTDISTILL: TRAINING-FREE AGENT DISTILLATION WITH\nGENERALIZABLE MCP BOXES.txt",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 39,
+    "label": "knowledge distillation",
+    "value": 1,
+    "title": "Canonical: knowledge distillation\nSynonyms: knowledge distillation",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "knowledge distillation"
+    ],
+    "sources": [
+      {
+        "title": "Diffusion vs. Autoregressive Language Models: A Text Embedding Perspective",
+        "url": "local://Diffusion vs. Autoregressive Language Models:\nA Text Embedding Perspective.txt",
+        "category": "academic"
+      },
+      {
+        "title": "AGENTDISTILL: TRAINING-FREE AGENT DISTILLATION WITH GENERALIZABLE MCP BOXES",
+        "url": "local://AGENTDISTILL: TRAINING-FREE AGENT DISTILLATION WITH\nGENERALIZABLE MCP BOXES.txt",
+        "category": "academic"
+      },
+      {
+        "title": "On the creation of narrow AI: hierarchy and nonlocality of neural network skills",
+        "url": "local://On the creation of narrow AI:\nhierarchy and nonlocality of neural network skills.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 40,
+    "label": "chain-of-model learning",
+    "value": 1,
+    "title": "Canonical: chain-of-model learning\nSynonyms: chain-of-model learning",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "chain-of-model learning"
+    ],
+    "sources": []
+  },
+  {
+    "id": 41,
+    "label": "chain-of-representation (cor)",
+    "value": 1,
+    "title": "Canonical: chain-of-representation (cor)\nSynonyms: chain-of-representation (cor)",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "chain-of-representation (cor)"
+    ],
+    "sources": []
+  },
+  {
+    "id": 42,
+    "label": "chain-of-layer (col)",
+    "value": 1,
+    "title": "Canonical: chain-of-layer (col)\nSynonyms: chain-of-layer (col)",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "chain-of-layer (col)"
+    ],
+    "sources": []
+  },
+  {
+    "id": 43,
+    "label": "self-adapting language models",
+    "value": 2,
+    "title": "Canonical: self-adapting language models\nSynonyms: large language models, self-adapting language models",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "self-adapting language models",
+      "large language models"
+    ],
+    "sources": [
+      {
+        "title": "Absolute Zero: Reinforced Self-play Reasoning with Zero Data",
+        "url": "local://Absolute Zero: Reinforced Self-play Reasoning with Zero Data.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Understanding Self-Evolution in LLM Agents via Multi-Turn Reinforcement Learning",
+        "url": "local://Understanding Self-Evolution in LLM Agents via\nMulti-Turn Reinforcement Learning.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Scaling Laws For Scalable Oversight",
+        "url": "local://Scaling Laws For Scalable Oversight.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Does Reinforcement Learning Really Incentivize Reasoning Capacity in LLMs Beyond the Base Model",
+        "url": "local://Does Reinforcement Learning Really Incentivize Reasoning\nCapacity in LLMs Beyond the Base Model.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Diffusion vs. Autoregressive Language Models: A Text Embedding Perspective",
+        "url": "local://Diffusion vs. Autoregressive Language Models:\nA Text Embedding Perspective.txt",
+        "category": "academic"
+      },
+      {
+        "title": "SPARQ: Synthetic Problem Generation for Reasoning via Quality-Diversity Algorithms",
+        "url": "local://SPARQ: Synthetic Problem Generation for Reasoning\nvia Quality-Diversity Algorithms.txt",
+        "category": "academic"
+      },
+      {
+        "title": "AGENTDISTILL: TRAINING-FREE AGENT DISTILLATION WITH GENERALIZABLE MCP BOXES",
+        "url": "local://AGENTDISTILL: TRAINING-FREE AGENT DISTILLATION WITH\nGENERALIZABLE MCP BOXES.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Chain-of-Model Learning for Language Model",
+        "url": "local://Chain-of-Model Learning for Language Model.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Self-Adapting Language Models",
+        "url": "local://Self-Adapting Language Models.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Symbolic Regression with Multimodal Large Language Models and Kolmogorov\u2013Arnold Networks",
+        "url": "local://Symbolic Regression with\nMultimodal Large Language Models\nand Kolmogorov\u2013Arnold Networks.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Text-to-LoRA: Instant Transformer Adaption",
+        "url": "local://Text-to-LoRA: Instant Transformer Adaption.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Reinforcing General Reasoning without Verifiers",
+        "url": "local://Reinforcing General Reasoning without Verifiers.txt",
+        "category": "academic"
+      },
+      {
+        "title": "ReasonIR: Training Retrievers for Reasoning Tasks",
+        "url": "local://ReasonIR: Training Retrievers for Reasoning Tasks.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Synthetic Data RL: Task Definition Is All You Need",
+        "url": "local://Synthetic Data RL: Task Definition Is All You Need.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Darwin G\u00f6del Machine: Open-Ended Evolution of Self-Improving Agents",
+        "url": "local://Darwin G\u00f6del Machine:\nOpen-Ended Evolution of Self-Improving Agents.txt",
+        "category": "academic"
+      },
+      {
+        "title": "ZEROSEARCH: Incentivize the Search Capability of LLMs without Searching",
+        "url": "local://ZEROSEARCH: Incentivize the Search Capability\nof LLMs without Searching.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "SophiaVL-R1: Reinforcing MLLMs Reasoning with Thinking Reward",
+        "url": "local://SophiaVL-R1: Reinforcing MLLMs Reasoning with Thinking Reward\n.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Inference-time Scaling of Diffusion Models through Classical Search",
+        "url": "local://Inference-time Scaling of Diffusion Models through\nClassical Search.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "The Entropy Mechanism of Reinforcement Learning for Reasoning Language Models",
+        "url": "local://The Entropy Mechanism of Reinforcement Learning for\nReasoning Language Models.txt",
+        "category": "academic"
+      },
+      {
+        "title": "AUTOMIND: Adaptive Knowledgeable Agent for Automated Data Science",
+        "url": "local://AUTOMIND: Adaptive Knowledgeable Agent for Automated Data Science.txt",
+        "category": "academic"
+      },
+      {
+        "title": "nternet of Agents: Fundamentals, Applications, and Challenges",
+        "url": "local://nternet of Agents: Fundamentals, Applications, and\nChallenges.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "On the creation of narrow AI: hierarchy and nonlocality of neural network skills",
+        "url": "local://On the creation of narrow AI:\nhierarchy and nonlocality of neural network skills.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Rethinking Memory in AI: Taxonomy, Operations, Topics, and Future Directions",
+        "url": "local://Rethinking Memory in AI: Taxonomy, Operations, Topics, and Future\nDirections.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Reinforcement Learning Teachers of Test Time Scaling",
+        "url": "local://Reinforcement Learning Teachers of Test Time Scaling.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Can Large Reasoning Models Self-Train?",
+        "url": "local://Can Large Reasoning Models Self-Train?\n.txt",
+        "category": "academic"
+      },
+      {
+        "title": "the-illusion-of-thinking",
+        "url": "local://the-illusion-of-thinking.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "A Hands-on Tutorial for Machine Learning Practitioners and Researchers",
+        "url": "local://A Hands-on Tutorial for Machine Learning\nPractitioners and Researchers.txt",
+        "category": "academic"
+      },
+      {
+        "title": "ProRL: Prolonged Reinforcement Learning Expands Reasoning Boundaries in Large Language Models",
+        "url": "local://ProRL: Prolonged Reinforcement Learning Expands\nReasoning Boundaries in Large Language Models.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "How much do language models memorize?",
+        "url": "local://How much do language models memorize?.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 44,
+    "label": "reinforcement learning algorithm",
+    "value": 2,
+    "title": "Canonical: reinforcement learning algorithm\nSynonyms: reinforcement learning, reinforcement learning algorithm",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "reinforcement learning algorithm",
+      "reinforcement learning"
+    ],
+    "sources": [
+      {
+        "title": "Absolute Zero: Reinforced Self-play Reasoning with Zero Data",
+        "url": "local://Absolute Zero: Reinforced Self-play Reasoning with Zero Data.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Self-Adapting Language Models",
+        "url": "local://Self-Adapting Language Models.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Darwin G\u00f6del Machine: Open-Ended Evolution of Self-Improving Agents",
+        "url": "local://Darwin G\u00f6del Machine:\nOpen-Ended Evolution of Self-Improving Agents.txt",
+        "category": "academic"
+      },
+      {
+        "title": "ZEROSEARCH: Incentivize the Search Capability of LLMs without Searching",
+        "url": "local://ZEROSEARCH: Incentivize the Search Capability\nof LLMs without Searching.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "SophiaVL-R1: Reinforcing MLLMs Reasoning with Thinking Reward",
+        "url": "local://SophiaVL-R1: Reinforcing MLLMs Reasoning with Thinking Reward\n.txt",
+        "category": "academic"
+      },
+      {
+        "title": "The Entropy Mechanism of Reinforcement Learning for Reasoning Language Models",
+        "url": "local://The Entropy Mechanism of Reinforcement Learning for\nReasoning Language Models.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Can Large Reasoning Models Self-Train?",
+        "url": "local://Can Large Reasoning Models Self-Train?\n.txt",
+        "category": "academic"
+      },
+      {
+        "title": "ProRL: Prolonged Reinforcement Learning Expands Reasoning Boundaries in Large Language Models",
+        "url": "local://ProRL: Prolonged Reinforcement Learning Expands\nReasoning Boundaries in Large Language Models.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Understanding Self-Evolution in LLM Agents via Multi-Turn Reinforcement Learning",
+        "url": "local://Understanding Self-Evolution in LLM Agents via\nMulti-Turn Reinforcement Learning.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Scaling Laws For Scalable Oversight",
+        "url": "local://Scaling Laws For Scalable Oversight.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Does Reinforcement Learning Really Incentivize Reasoning Capacity in LLMs Beyond the Base Model",
+        "url": "local://Does Reinforcement Learning Really Incentivize Reasoning\nCapacity in LLMs Beyond the Base Model.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "SPARQ: Synthetic Problem Generation for Reasoning via Quality-Diversity Algorithms",
+        "url": "local://SPARQ: Synthetic Problem Generation for Reasoning\nvia Quality-Diversity Algorithms.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Chain-of-Model Learning for Language Model",
+        "url": "local://Chain-of-Model Learning for Language Model.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Text-to-LoRA: Instant Transformer Adaption",
+        "url": "local://Text-to-LoRA: Instant Transformer Adaption.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Reinforcing General Reasoning without Verifiers",
+        "url": "local://Reinforcing General Reasoning without Verifiers.txt",
+        "category": "academic"
+      },
+      {
+        "title": "ReasonIR: Training Retrievers for Reasoning Tasks",
+        "url": "local://ReasonIR: Training Retrievers for Reasoning Tasks.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Synthetic Data RL: Task Definition Is All You Need",
+        "url": "local://Synthetic Data RL: Task Definition Is All You Need.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Inference-time Scaling of Diffusion Models through Classical Search",
+        "url": "local://Inference-time Scaling of Diffusion Models through\nClassical Search.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "AUTOMIND: Adaptive Knowledgeable Agent for Automated Data Science",
+        "url": "local://AUTOMIND: Adaptive Knowledgeable Agent for Automated Data Science.txt",
+        "category": "academic"
+      },
+      {
+        "title": "nternet of Agents: Fundamentals, Applications, and Challenges",
+        "url": "local://nternet of Agents: Fundamentals, Applications, and\nChallenges.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "On the creation of narrow AI: hierarchy and nonlocality of neural network skills",
+        "url": "local://On the creation of narrow AI:\nhierarchy and nonlocality of neural network skills.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Rethinking Memory in AI: Taxonomy, Operations, Topics, and Future Directions",
+        "url": "local://Rethinking Memory in AI: Taxonomy, Operations, Topics, and Future\nDirections.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Reinforcement Learning Teachers of Test Time Scaling",
+        "url": "local://Reinforcement Learning Teachers of Test Time Scaling.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Robust Speech recognition via Large-Scale Weak Supervision",
+        "url": "local://Robust Speech recognition via Large-Scale Weak Supervision .txt",
+        "category": "academic"
+      },
+      {
+        "title": "the-illusion-of-thinking",
+        "url": "local://the-illusion-of-thinking.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "A Hands-on Tutorial for Machine Learning Practitioners and Researchers",
+        "url": "local://A Hands-on Tutorial for Machine Learning\nPractitioners and Researchers.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Paper2Poster: Towards Multimodal Poster Automation from Scientific Papers",
+        "url": "local://Paper2Poster: Towards Multimodal Poster\nAutomation from Scientific Papers.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 46,
+    "label": "verifier-free approach",
+    "value": 2,
+    "title": "Canonical: verifier-free approach\nSynonyms: verifier function, verifier-free approach",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "verifier-free approach",
+      "verifier function"
+    ],
+    "sources": [
+      {
+        "title": "Reinforcing General Reasoning without Verifiers",
+        "url": "local://Reinforcing General Reasoning without Verifiers.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Inference-time Scaling of Diffusion Models through Classical Search",
+        "url": "local://Inference-time Scaling of Diffusion Models through\nClassical Search.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Can Large Reasoning Models Self-Train?",
+        "url": "local://Can Large Reasoning Models Self-Train?\n.txt",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 52,
+    "label": "retrieval-augmented generation (rag)",
+    "value": 1,
+    "title": "Canonical: retrieval-augmented generation (rag)\nSynonyms: retrieval-augmented generation (rag)",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "retrieval-augmented generation (rag)"
+    ],
+    "sources": [
+      {
+        "title": "Rethinking Memory in AI: Taxonomy, Operations, Topics, and Future Directions",
+        "url": "local://Rethinking Memory in AI: Taxonomy, Operations, Topics, and Future\nDirections.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 53,
+    "label": "search-r1",
+    "value": 1,
+    "title": "Canonical: search-r1\nSynonyms: search-r1",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "search-r1"
+    ],
+    "sources": []
+  },
+  {
+    "id": 54,
+    "label": "zerosearch",
+    "value": 1,
+    "title": "Canonical: zerosearch\nSynonyms: zerosearch",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "zerosearch"
+    ],
+    "sources": []
+  },
+  {
+    "id": 59,
+    "label": "classical search",
+    "value": 1,
+    "title": "Canonical: classical search\nSynonyms: classical search",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "classical search"
+    ],
+    "sources": [
+      {
+        "title": "Inference-time Scaling of Diffusion Models through Classical Search",
+        "url": "local://Inference-time Scaling of Diffusion Models through\nClassical Search.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 60,
+    "label": "diffusion models",
+    "value": 1,
+    "title": "Canonical: diffusion models\nSynonyms: diffusion models",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "diffusion models"
+    ],
+    "sources": [
+      {
+        "title": "Diffusion vs. Autoregressive Language Models: A Text Embedding Perspective",
+        "url": "local://Diffusion vs. Autoregressive Language Models:\nA Text Embedding Perspective.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Inference-time Scaling of Diffusion Models through Classical Search",
+        "url": "local://Inference-time Scaling of Diffusion Models through\nClassical Search.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "nternet of Agents: Fundamentals, Applications, and Challenges",
+        "url": "local://nternet of Agents: Fundamentals, Applications, and\nChallenges.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "On the creation of narrow AI: hierarchy and nonlocality of neural network skills",
+        "url": "local://On the creation of narrow AI:\nhierarchy and nonlocality of neural network skills.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "A Hands-on Tutorial for Machine Learning Practitioners and Researchers",
+        "url": "local://A Hands-on Tutorial for Machine Learning\nPractitioners and Researchers.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Paper2Poster: Towards Multimodal Poster Automation from Scientific Papers",
+        "url": "local://Paper2Poster: Towards Multimodal Poster\nAutomation from Scientific Papers.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "How much do language models memorize?",
+        "url": "local://How much do language models memorize?.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 61,
+    "label": "local search",
+    "value": 1,
+    "title": "Canonical: local search\nSynonyms: local search",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "local search"
+    ],
+    "sources": [
+      {
+        "title": "Inference-time Scaling of Diffusion Models through Classical Search",
+        "url": "local://Inference-time Scaling of Diffusion Models through\nClassical Search.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 62,
+    "label": "global search",
+    "value": 1,
+    "title": "Canonical: global search\nSynonyms: global search",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "global search"
+    ],
+    "sources": [
+      {
+        "title": "Inference-time Scaling of Diffusion Models through Classical Search",
+        "url": "local://Inference-time Scaling of Diffusion Models through\nClassical Search.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 63,
+    "label": "moore's law",
+    "value": 1,
+    "title": "Canonical: moore's law\nSynonyms: moore's law",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "moore's law"
+    ],
+    "sources": []
+  },
+  {
+    "id": 64,
+    "label": "general methods leverage computation",
+    "value": 2,
+    "title": "Canonical: general methods leverage computation\nSynonyms: general methods leverage computation, generalization",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "general methods leverage computation",
+      "generalization"
+    ],
+    "sources": [
+      {
+        "title": "Absolute Zero: Reinforced Self-play Reasoning with Zero Data",
+        "url": "local://Absolute Zero: Reinforced Self-play Reasoning with Zero Data.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Understanding Self-Evolution in LLM Agents via Multi-Turn Reinforcement Learning",
+        "url": "local://Understanding Self-Evolution in LLM Agents via\nMulti-Turn Reinforcement Learning.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Complex harmonics reveal low-dimensional manifolds of critical brain dynamics",
+        "url": "local://Complex harmonics reveal low-dimensional manifolds of critical brain dynamics.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Scaling Laws For Scalable Oversight",
+        "url": "local://Scaling Laws For Scalable Oversight.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Does Reinforcement Learning Really Incentivize Reasoning Capacity in LLMs Beyond the Base Model",
+        "url": "local://Does Reinforcement Learning Really Incentivize Reasoning\nCapacity in LLMs Beyond the Base Model.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "SPARQ: Synthetic Problem Generation for Reasoning via Quality-Diversity Algorithms",
+        "url": "local://SPARQ: Synthetic Problem Generation for Reasoning\nvia Quality-Diversity Algorithms.txt",
+        "category": "academic"
+      },
+      {
+        "title": "AGENTDISTILL: TRAINING-FREE AGENT DISTILLATION WITH GENERALIZABLE MCP BOXES",
+        "url": "local://AGENTDISTILL: TRAINING-FREE AGENT DISTILLATION WITH\nGENERALIZABLE MCP BOXES.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Chain-of-Model Learning for Language Model",
+        "url": "local://Chain-of-Model Learning for Language Model.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Self-Adapting Language Models",
+        "url": "local://Self-Adapting Language Models.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Text-to-LoRA: Instant Transformer Adaption",
+        "url": "local://Text-to-LoRA: Instant Transformer Adaption.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "ReasonIR: Training Retrievers for Reasoning Tasks",
+        "url": "local://ReasonIR: Training Retrievers for Reasoning Tasks.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Synthetic Data RL: Task Definition Is All You Need",
+        "url": "local://Synthetic Data RL: Task Definition Is All You Need.txt",
+        "category": "academic"
+      },
+      {
+        "title": "SophiaVL-R1: Reinforcing MLLMs Reasoning with Thinking Reward",
+        "url": "local://SophiaVL-R1: Reinforcing MLLMs Reasoning with Thinking Reward\n.txt",
+        "category": "academic"
+      },
+      {
+        "title": "The Entropy Mechanism of Reinforcement Learning for Reasoning Language Models",
+        "url": "local://The Entropy Mechanism of Reinforcement Learning for\nReasoning Language Models.txt",
+        "category": "academic"
+      },
+      {
+        "title": "The Bitter Lesson",
+        "url": "local://The Bitter Lesson.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Rethinking Memory in AI: Taxonomy, Operations, Topics, and Future Directions",
+        "url": "local://Rethinking Memory in AI: Taxonomy, Operations, Topics, and Future\nDirections.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Reinforcement Learning Teachers of Test Time Scaling",
+        "url": "local://Reinforcement Learning Teachers of Test Time Scaling.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Robust Speech recognition via Large-Scale Weak Supervision",
+        "url": "local://Robust Speech recognition via Large-Scale Weak Supervision .txt",
+        "category": "academic"
+      },
+      {
+        "title": "Panda: A pretrained forecast model for universal representation of chaotic dynamics",
+        "url": "local://Panda: A pretrained forecast model for universal\nrepresentation of chaotic dynamics.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Can Large Reasoning Models Self-Train?",
+        "url": "local://Can Large Reasoning Models Self-Train?\n.txt",
+        "category": "academic"
+      },
+      {
+        "title": "the-illusion-of-thinking",
+        "url": "local://the-illusion-of-thinking.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "A Hands-on Tutorial for Machine Learning Practitioners and Researchers",
+        "url": "local://A Hands-on Tutorial for Machine Learning\nPractitioners and Researchers.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Paper2Poster: Towards Multimodal Poster Automation from Scientific Papers",
+        "url": "local://Paper2Poster: Towards Multimodal Poster\nAutomation from Scientific Papers.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "ProRL: Prolonged Reinforcement Learning Expands Reasoning Boundaries in Large Language Models",
+        "url": "local://ProRL: Prolonged Reinforcement Learning Expands\nReasoning Boundaries in Large Language Models.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "How much do language models memorize?",
+        "url": "local://How much do language models memorize?.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 65,
+    "label": "human-knowledge-based approaches",
+    "value": 1,
+    "title": "Canonical: human-knowledge-based approaches\nSynonyms: human-knowledge-based approaches",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "human-knowledge-based approaches"
+    ],
+    "sources": []
+  },
+  {
+    "id": 67,
+    "label": "bitter lesson",
+    "value": 1,
+    "title": "Canonical: bitter lesson\nSynonyms: bitter lesson",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "bitter lesson"
+    ],
+    "sources": [
+      {
+        "title": "The Entropy Mechanism of Reinforcement Learning for Reasoning Language Models",
+        "url": "local://The Entropy Mechanism of Reinforcement Learning for\nReasoning Language Models.txt",
+        "category": "academic"
+      },
+      {
+        "title": "The Bitter Lesson",
+        "url": "local://The Bitter Lesson.txt",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 74,
+    "label": "narrow ai",
+    "value": 1,
+    "title": "Canonical: narrow ai\nSynonyms: narrow ai",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "narrow ai"
+    ],
+    "sources": []
+  },
+  {
+    "id": 75,
+    "label": "hierarchical skills",
+    "value": 1,
+    "title": "Canonical: hierarchical skills\nSynonyms: hierarchical skills",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "hierarchical skills"
+    ],
+    "sources": []
+  },
+  {
+    "id": 76,
+    "label": "nonlocality of neural network skills",
+    "value": 1,
+    "title": "Canonical: nonlocality of neural network skills\nSynonyms: nonlocality of neural network skills",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "nonlocality of neural network skills"
+    ],
+    "sources": [
+      {
+        "title": "On the creation of narrow AI: hierarchy and nonlocality of neural network skills",
+        "url": "local://On the creation of narrow AI:\nhierarchy and nonlocality of neural network skills.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 77,
+    "label": "pruning",
+    "value": 1,
+    "title": "Canonical: pruning\nSynonyms: pruning",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "pruning"
+    ],
+    "sources": [
+      {
+        "title": "Symbolic Regression with Multimodal Large Language Models and Kolmogorov\u2013Arnold Networks",
+        "url": "local://Symbolic Regression with\nMultimodal Large Language Models\nand Kolmogorov\u2013Arnold Networks.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Inference-time Scaling of Diffusion Models through Classical Search",
+        "url": "local://Inference-time Scaling of Diffusion Models through\nClassical Search.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "nternet of Agents: Fundamentals, Applications, and Challenges",
+        "url": "local://nternet of Agents: Fundamentals, Applications, and\nChallenges.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "On the creation of narrow AI: hierarchy and nonlocality of neural network skills",
+        "url": "local://On the creation of narrow AI:\nhierarchy and nonlocality of neural network skills.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Rethinking Memory in AI: Taxonomy, Operations, Topics, and Future Directions",
+        "url": "local://Rethinking Memory in AI: Taxonomy, Operations, Topics, and Future\nDirections.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "A Hands-on Tutorial for Machine Learning Practitioners and Researchers",
+        "url": "local://A Hands-on Tutorial for Machine Learning\nPractitioners and Researchers.txt",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 78,
+    "label": "unlearning",
+    "value": 1,
+    "title": "Canonical: unlearning\nSynonyms: unlearning",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "unlearning"
+    ],
+    "sources": [
+      {
+        "title": "On the creation of narrow AI: hierarchy and nonlocality of neural network skills",
+        "url": "local://On the creation of narrow AI:\nhierarchy and nonlocality of neural network skills.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Rethinking Memory in AI: Taxonomy, Operations, Topics, and Future Directions",
+        "url": "local://Rethinking Memory in AI: Taxonomy, Operations, Topics, and Future\nDirections.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 79,
+    "label": "curriculum learning",
+    "value": 1,
+    "title": "Canonical: curriculum learning\nSynonyms: curriculum learning",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "curriculum learning"
+    ],
+    "sources": [
+      {
+        "title": "Absolute Zero: Reinforced Self-play Reasoning with Zero Data",
+        "url": "local://Absolute Zero: Reinforced Self-play Reasoning with Zero Data.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Darwin G\u00f6del Machine: Open-Ended Evolution of Self-Improving Agents",
+        "url": "local://Darwin G\u00f6del Machine:\nOpen-Ended Evolution of Self-Improving Agents.txt",
+        "category": "academic"
+      },
+      {
+        "title": "ZEROSEARCH: Incentivize the Search Capability of LLMs without Searching",
+        "url": "local://ZEROSEARCH: Incentivize the Search Capability\nof LLMs without Searching.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "On the creation of narrow AI: hierarchy and nonlocality of neural network skills",
+        "url": "local://On the creation of narrow AI:\nhierarchy and nonlocality of neural network skills.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Can Large Reasoning Models Self-Train?",
+        "url": "local://Can Large Reasoning Models Self-Train?\n.txt",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 86,
+    "label": "panda",
+    "value": 1,
+    "title": "Canonical: panda\nSynonyms: panda",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "panda"
+    ],
+    "sources": [
+      {
+        "title": "AUTOMIND: Adaptive Knowledgeable Agent for Automated Data Science",
+        "url": "local://AUTOMIND: Adaptive Knowledgeable Agent for Automated Data Science.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Robust Speech recognition via Large-Scale Weak Supervision",
+        "url": "local://Robust Speech recognition via Large-Scale Weak Supervision .txt",
+        "category": "academic"
+      },
+      {
+        "title": "Panda: A pretrained forecast model for universal representation of chaotic dynamics",
+        "url": "local://Panda: A pretrained forecast model for universal\nrepresentation of chaotic dynamics.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Paper2Poster: Towards Multimodal Poster Automation from Scientific Papers",
+        "url": "local://Paper2Poster: Towards Multimodal Poster\nAutomation from Scientific Papers.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 87,
+    "label": "nonlinear dynamical systems",
+    "value": 1,
+    "title": "Canonical: nonlinear dynamical systems\nSynonyms: nonlinear dynamical systems",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "nonlinear dynamical systems"
+    ],
+    "sources": [
+      {
+        "title": "Panda: A pretrained forecast model for universal representation of chaotic dynamics",
+        "url": "local://Panda: A pretrained forecast model for universal\nrepresentation of chaotic dynamics.txt",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 88,
+    "label": "self-training",
+    "value": 1,
+    "title": "Canonical: self-training\nSynonyms: self-training",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "self-training"
+    ],
+    "sources": [
+      {
+        "title": "Absolute Zero: Reinforced Self-play Reasoning with Zero Data",
+        "url": "local://Absolute Zero: Reinforced Self-play Reasoning with Zero Data.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Does Reinforcement Learning Really Incentivize Reasoning Capacity in LLMs Beyond the Base Model",
+        "url": "local://Does Reinforcement Learning Really Incentivize Reasoning\nCapacity in LLMs Beyond the Base Model.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "SPARQ: Synthetic Problem Generation for Reasoning via Quality-Diversity Algorithms",
+        "url": "local://SPARQ: Synthetic Problem Generation for Reasoning\nvia Quality-Diversity Algorithms.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Self-Adapting Language Models",
+        "url": "local://Self-Adapting Language Models.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Synthetic Data RL: Task Definition Is All You Need",
+        "url": "local://Synthetic Data RL: Task Definition Is All You Need.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Darwin G\u00f6del Machine: Open-Ended Evolution of Self-Improving Agents",
+        "url": "local://Darwin G\u00f6del Machine:\nOpen-Ended Evolution of Self-Improving Agents.txt",
+        "category": "academic"
+      },
+      {
+        "title": "SophiaVL-R1: Reinforcing MLLMs Reasoning with Thinking Reward",
+        "url": "local://SophiaVL-R1: Reinforcing MLLMs Reasoning with Thinking Reward\n.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Inference-time Scaling of Diffusion Models through Classical Search",
+        "url": "local://Inference-time Scaling of Diffusion Models through\nClassical Search.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "Robust Speech recognition via Large-Scale Weak Supervision",
+        "url": "local://Robust Speech recognition via Large-Scale Weak Supervision .txt",
+        "category": "academic"
+      },
+      {
+        "title": "Can Large Reasoning Models Self-Train?",
+        "url": "local://Can Large Reasoning Models Self-Train?\n.txt",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 89,
+    "label": "reinforcement learning from automated verification (rlav)",
+    "value": 1,
+    "title": "Canonical: reinforcement learning from automated verification (rlav)\nSynonyms: reinforcement learning from automated verification (rlav)",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "reinforcement learning from automated verification (rlav)"
+    ],
+    "sources": []
+  },
+  {
+    "id": 90,
+    "label": "model self-consistency",
+    "value": 1,
+    "title": "Canonical: model self-consistency\nSynonyms: model self-consistency",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "model self-consistency"
+    ],
+    "sources": []
+  },
+  {
+    "id": 91,
+    "label": "reward hacking",
+    "value": 1,
+    "title": "Canonical: reward hacking\nSynonyms: reward hacking",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "reward hacking"
+    ],
+    "sources": [
+      {
+        "title": "Self-Adapting Language Models",
+        "url": "local://Self-Adapting Language Models.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Reinforcing General Reasoning without Verifiers",
+        "url": "local://Reinforcing General Reasoning without Verifiers.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Darwin G\u00f6del Machine: Open-Ended Evolution of Self-Improving Agents",
+        "url": "local://Darwin G\u00f6del Machine:\nOpen-Ended Evolution of Self-Improving Agents.txt",
+        "category": "academic"
+      },
+      {
+        "title": "ZEROSEARCH: Incentivize the Search Capability of LLMs without Searching",
+        "url": "local://ZEROSEARCH: Incentivize the Search Capability\nof LLMs without Searching.pdf",
+        "category": "academic"
+      },
+      {
+        "title": "SophiaVL-R1: Reinforcing MLLMs Reasoning with Thinking Reward",
+        "url": "local://SophiaVL-R1: Reinforcing MLLMs Reasoning with Thinking Reward\n.txt",
+        "category": "academic"
+      },
+      {
+        "title": "The Entropy Mechanism of Reinforcement Learning for Reasoning Language Models",
+        "url": "local://The Entropy Mechanism of Reinforcement Learning for\nReasoning Language Models.txt",
+        "category": "academic"
+      },
+      {
+        "title": "Can Large Reasoning Models Self-Train?",
+        "url": "local://Can Large Reasoning Models Self-Train?\n.txt",
+        "category": "academic"
+      },
+      {
+        "title": "ProRL: Prolonged Reinforcement Learning Expands Reasoning Boundaries in Large Language Models",
+        "url": "local://ProRL: Prolonged Reinforcement Learning Expands\nReasoning Boundaries in Large Language Models.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 92,
+    "label": "large reasoning models (lrms)",
+    "value": 1,
+    "title": "Canonical: large reasoning models (lrms)\nSynonyms: large reasoning models (lrms)",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "large reasoning models (lrms)"
+    ],
+    "sources": []
+  },
+  {
+    "id": 93,
+    "label": "problem complexity",
+    "value": 1,
+    "title": "Canonical: problem complexity\nSynonyms: problem complexity",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "problem complexity"
+    ],
+    "sources": [
+      {
+        "title": "the-illusion-of-thinking",
+        "url": "local://the-illusion-of-thinking.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 94,
+    "label": "inference time scaling limitation",
+    "value": 1,
+    "title": "Canonical: inference time scaling limitation\nSynonyms: inference time scaling limitation",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "inference time scaling limitation"
+    ],
+    "sources": [
+      {
+        "title": "the-illusion-of-thinking",
+        "url": "local://the-illusion-of-thinking.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 95,
+    "label": "academic poster generation",
+    "value": 1,
+    "title": "Canonical: academic poster generation\nSynonyms: academic poster generation",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "academic poster generation"
+    ],
+    "sources": [
+      {
+        "title": "Paper2Poster: Towards Multimodal Poster Automation from Scientific Papers",
+        "url": "local://Paper2Poster: Towards Multimodal Poster\nAutomation from Scientific Papers.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 96,
+    "label": "paper2poster benchmark",
+    "value": 1,
+    "title": "Canonical: paper2poster benchmark\nSynonyms: paper2poster benchmark",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "paper2poster benchmark"
+    ],
+    "sources": []
+  },
+  {
+    "id": 97,
+    "label": "posteragent",
+    "value": 1,
+    "title": "Canonical: posteragent\nSynonyms: posteragent",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "posteragent"
+    ],
+    "sources": []
+  },
+  {
+    "id": 98,
+    "label": "multimodal context compression",
+    "value": 1,
+    "title": "Canonical: multimodal context compression\nSynonyms: multimodal context compression",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "multimodal context compression"
+    ],
+    "sources": [
+      {
+        "title": "Paper2Poster: Towards Multimodal Poster Automation from Scientific Papers",
+        "url": "local://Paper2Poster: Towards Multimodal Poster\nAutomation from Scientific Papers.pdf",
+        "category": "academic"
+      }
+    ]
+  },
+  {
+    "id": 103,
+    "label": "accuracy collapse",
+    "value": 1,
+    "title": "Canonical: accuracy collapse\nSynonyms: accuracy collapse",
+    "shape": "dot",
+    "color": "#97C2FC",
+    "members": [
+      "accuracy collapse"
+    ],
+    "sources": [
+      {
+        "title": "the-illusion-of-thinking",
+        "url": "local://the-illusion-of-thinking.pdf",
+        "category": "academic"
+      }
+    ]
+  }
+]);
+    const edgesData = new vis.DataSet([
+  {
+    "from": 1,
+    "to": 3,
+    "value": 7,
+    "title": "Similarity \u2248 0.62"
+  },
+  {
+    "from": 4,
+    "to": 3,
+    "value": 7,
+    "title": "Similarity \u2248 0.70"
+  },
+  {
+    "from": 3,
+    "to": 2,
+    "value": 7,
+    "title": "Similarity \u2248 0.64"
+  },
+  {
+    "from": 5,
+    "to": 2,
+    "value": 7,
+    "title": "Similarity \u2248 0.66"
+  },
+  {
+    "from": 1,
+    "to": 6,
+    "value": 7,
+    "title": "Similarity \u2248 0.66"
+  },
+  {
+    "from": 7,
+    "to": 6,
+    "value": 8,
+    "title": "Similarity \u2248 0.74"
+  },
+  {
+    "from": 9,
+    "to": 3,
+    "value": 7,
+    "title": "Similarity \u2248 0.67"
+  },
+  {
+    "from": 11,
+    "to": 10,
+    "value": 6,
+    "title": "Similarity \u2248 0.60"
+  },
+  {
+    "from": 12,
+    "to": 11,
+    "value": 7,
+    "title": "Similarity \u2248 0.67"
+  },
+  {
+    "from": 13,
+    "to": 11,
+    "value": 7,
+    "title": "Similarity \u2248 0.62"
+  },
+  {
+    "from": 11,
+    "to": 12,
+    "value": 7,
+    "title": "Similarity \u2248 0.67"
+  },
+  {
+    "from": 14,
+    "to": 12,
+    "value": 7,
+    "title": "Similarity \u2248 0.72"
+  },
+  {
+    "from": 11,
+    "to": 13,
+    "value": 7,
+    "title": "Similarity \u2248 0.62"
+  },
+  {
+    "from": 23,
+    "to": 2,
+    "value": 7,
+    "title": "Similarity \u2248 0.66"
+  },
+  {
+    "from": 10,
+    "to": 14,
+    "value": 7,
+    "title": "Similarity \u2248 0.68"
+  },
+  {
+    "from": 24,
+    "to": 14,
+    "value": 7,
+    "title": "Similarity \u2248 0.65"
+  },
+  {
+    "from": 24,
+    "to": 10,
+    "value": 7,
+    "title": "Similarity \u2248 0.71"
+  },
+  {
+    "from": 12,
+    "to": 10,
+    "value": 7,
+    "title": "Similarity \u2248 0.67"
+  },
+  {
+    "from": 39,
+    "to": 35,
+    "value": 8,
+    "title": "Similarity \u2248 0.83"
+  },
+  {
+    "from": 35,
+    "to": 38,
+    "value": 7,
+    "title": "Similarity \u2248 0.70"
+  },
+  {
+    "from": 37,
+    "to": 38,
+    "value": 9,
+    "title": "Similarity \u2248 0.89"
+  },
+  {
+    "from": 41,
+    "to": 40,
+    "value": 8,
+    "title": "Similarity \u2248 0.75"
+  },
+  {
+    "from": 42,
+    "to": 40,
+    "value": 8,
+    "title": "Similarity \u2248 0.77"
+  },
+  {
+    "from": 41,
+    "to": 42,
+    "value": 7,
+    "title": "Similarity \u2248 0.70"
+  },
+  {
+    "from": 44,
+    "to": 43,
+    "value": 8,
+    "title": "Similarity \u2248 0.74"
+  },
+  {
+    "from": 8,
+    "to": 52,
+    "value": 7,
+    "title": "Similarity \u2248 0.66"
+  },
+  {
+    "from": 52,
+    "to": 1,
+    "value": 7,
+    "title": "Similarity \u2248 0.66"
+  },
+  {
+    "from": 1,
+    "to": 53,
+    "value": 7,
+    "title": "Similarity \u2248 0.72"
+  },
+  {
+    "from": 8,
+    "to": 54,
+    "value": 7,
+    "title": "Similarity \u2248 0.62"
+  },
+  {
+    "from": 1,
+    "to": 54,
+    "value": 7,
+    "title": "Similarity \u2248 0.63"
+  },
+  {
+    "from": 59,
+    "to": 61,
+    "value": 8,
+    "title": "Similarity \u2248 0.78"
+  },
+  {
+    "from": 46,
+    "to": 61,
+    "value": 7,
+    "title": "Similarity \u2248 0.68"
+  },
+  {
+    "from": 59,
+    "to": 62,
+    "value": 8,
+    "title": "Similarity \u2248 0.80"
+  },
+  {
+    "from": 60,
+    "to": 46,
+    "value": 7,
+    "title": "Similarity \u2248 0.62"
+  },
+  {
+    "from": 61,
+    "to": 46,
+    "value": 7,
+    "title": "Similarity \u2248 0.68"
+  },
+  {
+    "from": 63,
+    "to": 64,
+    "value": 8,
+    "title": "Similarity \u2248 0.76"
+  },
+  {
+    "from": 63,
+    "to": 67,
+    "value": 6,
+    "title": "Similarity \u2248 0.58"
+  },
+  {
+    "from": 64,
+    "to": 67,
+    "value": 8,
+    "title": "Similarity \u2248 0.73"
+  },
+  {
+    "from": 65,
+    "to": 67,
+    "value": 7,
+    "title": "Similarity \u2248 0.72"
+  },
+  {
+    "from": 75,
+    "to": 74,
+    "value": 7,
+    "title": "Similarity \u2248 0.69"
+  },
+  {
+    "from": 76,
+    "to": 74,
+    "value": 7,
+    "title": "Similarity \u2248 0.70"
+  },
+  {
+    "from": 78,
+    "to": 77,
+    "value": 8,
+    "title": "Similarity \u2248 0.83"
+  },
+  {
+    "from": 79,
+    "to": 77,
+    "value": 8,
+    "title": "Similarity \u2248 0.73"
+  },
+  {
+    "from": 87,
+    "to": 86,
+    "value": 6,
+    "title": "Similarity \u2248 0.59"
+  },
+  {
+    "from": 43,
+    "to": 88,
+    "value": 8,
+    "title": "Similarity \u2248 0.78"
+  },
+  {
+    "from": 88,
+    "to": 89,
+    "value": 8,
+    "title": "Similarity \u2248 0.75"
+  },
+  {
+    "from": 90,
+    "to": 89,
+    "value": 7,
+    "title": "Similarity \u2248 0.69"
+  },
+  {
+    "from": 88,
+    "to": 91,
+    "value": 7,
+    "title": "Similarity \u2248 0.72"
+  },
+  {
+    "from": 8,
+    "to": 92,
+    "value": 8,
+    "title": "Similarity \u2248 0.78"
+  },
+  {
+    "from": 92,
+    "to": 93,
+    "value": 8,
+    "title": "Similarity \u2248 0.78"
+  },
+  {
+    "from": 93,
+    "to": 7,
+    "value": 9,
+    "title": "Similarity \u2248 0.85"
+  },
+  {
+    "from": 92,
+    "to": 7,
+    "value": 9,
+    "title": "Similarity \u2248 0.86"
+  },
+  {
+    "from": 92,
+    "to": 94,
+    "value": 8,
+    "title": "Similarity \u2248 0.77"
+  },
+  {
+    "from": 93,
+    "to": 94,
+    "value": 8,
+    "title": "Similarity \u2248 0.81"
+  },
+  {
+    "from": 96,
+    "to": 95,
+    "value": 7,
+    "title": "Similarity \u2248 0.70"
+  },
+  {
+    "from": 98,
+    "to": 97,
+    "value": 7,
+    "title": "Similarity \u2248 0.63"
+  },
+  {
+    "from": 103,
+    "to": 7,
+    "value": 8,
+    "title": "Similarity \u2248 0.75"
+  }
+]);
+    // --------------------------------------------
+
+    const container = document.getElementById("mynetwork");
+    const data = { nodes: nodesData, edges: edgesData };
+    const options = {
+      physics: {
+        stabilization: { iterations: 1000 },
+        enabled: true,
+        barnesHut: { springConstant: 0.04, avoidOverlap: 0.5 }
+      },
+      interaction: { hover: true, tooltipDelay: 200, dragNodes: true },
+      manipulation: { enabled: true }, // allow user to move nodes/edges
+      edges: {
+        arrows: { to: { enabled: true, scaleFactor: 0.7 } },
+        color: { inherit: 'from' },
+        scaling: { min: 1, max: 10 },
+        smooth: { type: "dynamic" } // elastic arrows
+      },
+      nodes: {
+        font: { size: 16, align: 'center' },
+        scaling: { min: 15, max: 50, label: { enabled: true, min: 14, max: 30 } },
+        color: {
+            border: '#2B7CE9', background: '#97C2FC',
+            highlight: { border: '#2B7CE9', background: '#D2E5FF' },
+            hover: { border: '#2B7CE9', background: '#D2E5FF' }
+        }
+      }
+    };
+
+    let network = new vis.Network(container, data, options);
+
+    // --- Disable automatic node movement after initial layout ---
+    network.once('stabilizationIterationsDone', function() {
+      network.setOptions({ physics: { enabled: false } });
+    });
+
+    // --- Map Type Selector ---
+    function updateMapTypeSelector() {
+      // If only 'all' map is available, disable others
+      const mapTypeSelect = document.getElementById('map-type-select');
+      const availableTypes = ["academic", "all"]; // e.g. ["all"]
+      for (const opt of mapTypeSelect.options) {
+        if (!availableTypes.includes(opt.value)) {
+          opt.disabled = true;
+          opt.className = 'disabled-option';
+        } else {
+          opt.disabled = false;
+          opt.className = '';
+        }
+      }
+      // Set current type
+      const url = new URL(window.location.href);
+      const currentType = url.searchParams.get('type') || 'all';
+      mapTypeSelect.value = currentType;
+    }
+    updateMapTypeSelector();
+    document.getElementById('map-type-select').addEventListener('change', function() {
+      const type = this.value;
+      const url = new URL(window.location.href);
+      url.searchParams.set('type', type);
+      window.location.href = url.toString();
+    });
+
+    // --- Navigation and Zoom Controls (fix up/down directions) ---
+    document.getElementById('zoom-in').onclick = () => network.moveTo({ scale: network.getScale() * 1.2 });
+    document.getElementById('zoom-out').onclick = () => network.moveTo({ scale: network.getScale() / 1.2 });
+    document.getElementById('pan-up').onclick = () => network.moveTo({ offset: { x: 0, y: 100 } }); // up pans up
+    document.getElementById('pan-down').onclick = () => network.moveTo({ offset: { x: 0, y: -100 } }); // down pans down
+    document.getElementById('pan-left').onclick = () => network.moveTo({ offset: { x: -100, y: 0 } });
+    document.getElementById('pan-right').onclick = () => network.moveTo({ offset: { x: 100, y: 0 } });
+    document.getElementById('center-view').onclick = () => network.fit({ animation: true });
+
+    // --- Bubble Mechanism with + Button ---
+    function showPlusButton(nodeId, x, y) {
+      let btn = document.getElementById('plus-btn-' + nodeId);
+      if (!btn) {
+        btn = document.createElement('div');
+        btn.className = 'plus-btn';
+        btn.id = 'plus-btn-' + nodeId;
+        btn.innerText = '+';
+        btn.onclick = () => {
+          expandCluster(nodeId, nodesData.get(nodeId));
+          btn.remove();
+        };
+        document.body.appendChild(btn);
+      }
+      btn.style.left = (x + 20) + 'px';
+      btn.style.top = (y - 20) + 'px';
+    }
+    function hidePlusButtons() {
+      document.querySelectorAll('.plus-btn').forEach(btn => btn.remove());
+    }
+    network.on('afterDrawing', () => hidePlusButtons());
+    network.on('hoverNode', function(params) {
+      const node = nodesData.get(params.node);
+      if (node && node.members && node.members.length > 1) {
+        const pos = network.getPositions([params.node])[params.node];
+        const canvasPos = network.canvasToDOM(pos);
+        showPlusButton(params.node, canvasPos.x, canvasPos.y);
+      }
+    });
+    network.on('blurNode', function() { hidePlusButtons(); });
+
+    // --- Cluster Expansion Logic (double click still works) ---
+    const expandedClusters = new Set();
+    function expandCluster(clusterId, clusterNode) {
+        const synonymNodes = [];
+        const synonymEdges = [];
+        clusterNode.members.forEach(memberName => {
+            if (memberName.toLowerCase() === clusterNode.label.toLowerCase()) return;
+            const synonymId = `${clusterId}_synonym_${memberName}`;
+            synonymNodes.push({
+                id: synonymId,
+                label: memberName,
+                shape: 'ellipse',
+                color: { background: '#f0f0f0', border: '#a0a0a0' },
+                font: { size: 12, color: '#666', align: 'center' },
+                value: 1, physics: false
+            });
+            synonymEdges.push({
+                from: clusterId,
+                to: synonymId,
+                arrows: { to: { enabled: false } },
+                dashes: [2, 4],
+                color: '#c0c0c0'
+            });
+        });
+        if (synonymNodes.length > 0) {
+            nodesData.update(synonymNodes);
+            edgesData.update(synonymEdges);
+            nodesData.update({ id: clusterId, color: { background: '#FFA500' } });
+            expandedClusters.add(clusterId);
+        }
+    }
+    function collapseCluster(clusterId, clusterNode) {
+        const nodesToRemove = [];
+        clusterNode.members.forEach(memberName => {
+            nodesToRemove.push(`${clusterId}_synonym_${memberName}`);
+        });
+        nodesData.remove(nodesToRemove);
+        nodesData.update({ id: clusterId, color: { background: '#97C2FC' } });
+        expandedClusters.delete(clusterId);
+    }
+    network.on('doubleClick', ({ nodes: nodeIds }) => {
+        if (nodeIds.length === 0) return;
+        const clusterId = nodeIds[0];
+        if (typeof clusterId === 'string' && clusterId.includes('_synonym_')) return;
+        const clusterNode = nodesData.get(clusterId);
+        if (!clusterNode || !clusterNode.members || clusterNode.members.length <= 1) return;
+        if (expandedClusters.has(clusterId)) {
+            collapseCluster(clusterId, clusterNode);
+        } else {
+            expandCluster(clusterId, clusterNode);
+        }
+    });
+
+    // --- View Source for Node Concept ---
+    function showViewSourceBtn(nodeId, x, y, sourceUrl) {
+      let btn = document.getElementById('view-source-btn-' + nodeId);
+      if (!btn) {
+        btn = document.createElement('div');
+        btn.className = 'view-source-btn';
+        btn.id = 'view-source-btn-' + nodeId;
+        btn.innerText = 'View Source';
+        btn.onclick = () => { window.open(sourceUrl, '_blank'); };
+        document.body.appendChild(btn);
+      }
+      btn.style.left = (x + 40) + 'px';
+      btn.style.top = (y - 10) + 'px';
+    }
+    function hideViewSourceBtns() {
+      document.querySelectorAll('.view-source-btn').forEach(btn => btn.remove());
+    }
+    network.on('selectNode', function(params) {
+      const node = nodesData.get(params.nodes[0]);
+      if (node && node.title && node.title.includes('Source:')) {
+        const match = node.title.match(/Source: (.+)/);
+        if (match) {
+          const pos = network.getPositions([params.nodes[0]])[params.nodes[0]];
+          const canvasPos = network.canvasToDOM(pos);
+          showViewSourceBtn(params.nodes[0], canvasPos.x, canvasPos.y, match[1]);
+        }
+      }
+    });
+    network.on('deselectNode', hideViewSourceBtns);
+
+    // --- Concept Index Dropdown ---
+    function populateConceptIndex() {
+      const conceptIndex = document.getElementById('concept-index');
+      let allNodes = nodesData.get();
+      allNodes = allNodes.filter(n => !String(n.id).includes('_synonym_'));
+      allNodes.sort((a, b) => a.label.localeCompare(b.label));
+      conceptIndex.innerHTML = '';
+      allNodes.forEach(node => {
+        const opt = document.createElement('option');
+        opt.value = node.id;
+        opt.textContent = node.label;
+        conceptIndex.appendChild(opt);
+      });
+    }
+    populateConceptIndex();
+    nodesData.on('*', populateConceptIndex);
+
+    // --- Concept Index and Search Bar Sync ---
+    document.getElementById('concept-index').addEventListener('change', function() {
+      const nodeId = this.value;
+      if (nodeId) {
+        const node = nodesData.get(nodeId);
+        document.getElementById('search-input').value = node.label;
+      }
+    });
+    document.getElementById('search-input').addEventListener('keyup', (e) => {
+      if (e.key === 'Enter') {
+        const query = document.getElementById('search-input').value.toLowerCase();
+        const foundNode = nodesData.get({
+          filter: item => item.label.toLowerCase() === query
+        });
+        if (foundNode.length > 0) {
+          network.focus(foundNode[0].id, { scale: 1.5, animation: true });
+          // Do not select the node, just focus visually
+          // Also close any open popups
+          const popup = document.getElementById('find-source-popup');
+          if (popup) popup.style.display = 'none';
+        }
+      }
+    });
+
+    // --- Find Source Button (shows all sources for selected node in a popup) ---
+    let lastSelectedNodeId = null;
+    document.getElementById('find-source-btn').onclick = function(e) {
+      let nodeId = lastSelectedNodeId;
+      // If nothing selected, try to use the search bar value
+      if (!nodeId) {
+        const query = document.getElementById('search-input').value.toLowerCase();
+        const foundNode = nodesData.get({
+          filter: item => item.label.toLowerCase() === query
+        });
+        if (foundNode.length > 0) nodeId = foundNode[0].id;
+      }
+      const popup = document.getElementById('find-source-popup');
+      popup.innerHTML = '';
+      if (nodeId) {
+        const node = nodesData.get(nodeId);
+        if (node && node.sources && node.sources.length > 0) {
+          let html = '<b>Sources for this concept:</b><ul style="padding-left:18px;">';
+          node.sources.forEach((src, idx) => {
+            html += `<li><a href="${src.url}" target="_blank">${src.title}</a> <span style='color:#888;font-size:0.95em;'>[${src.category}]</span></li>`;
+          });
+          html += '</ul>';
+          html += '<button id="close-source-popup" style="margin-top:8px;padding:2px 10px;border-radius:5px;border:1px solid #aaa;background:#f6f8fa;cursor:pointer;">Close</button>';
+          popup.innerHTML = html;
+          // Position popup below the button
+          const btnRect = e.target.getBoundingClientRect();
+          popup.style.top = (btnRect.bottom + window.scrollY + 6) + 'px';
+          popup.style.left = (btnRect.left + window.scrollX) + 'px';
+          popup.style.display = 'block';
+          document.getElementById('close-source-popup').onclick = function() {
+            popup.style.display = 'none';
+          };
+        } else {
+          popup.innerHTML = '<span style="color:#a00;">No sources found for this concept.</span>';
+          popup.style.display = 'block';
+          setTimeout(() => { popup.style.display = 'none'; }, 1800);
+        }
+      } else {
+        popup.innerHTML = '<span style="color:#a00;">Select a concept first.</span>';
+        popup.style.display = 'block';
+        setTimeout(() => { popup.style.display = 'none'; }, 1500);
+      }
+    };
+    network.on('selectNode', function(params) {
+      lastSelectedNodeId = params.nodes[0];
+      document.getElementById('find-source-popup').style.display = 'none';
+    });
+    network.on('deselectNode', function() {
+      lastSelectedNodeId = null;
+      document.getElementById('find-source-popup').style.display = 'none';
+    });
+
+    // --- Search confirm button and logic (no selection, just focus) ---
+    function focusConceptBySearch() {
+      const query = document.getElementById('search-input').value.toLowerCase();
+      const foundNode = nodesData.get({
+        filter: item => item.label.toLowerCase() === query
+      });
+      if (foundNode.length > 0) {
+        network.unselectAll();
+        network.focus(foundNode[0].id, { scale: 1.5, animation: false });
+        // Do not select the node, just focus visually
+        // Also close any open popups
+        const popup = document.getElementById('find-source-popup');
+        if (popup) popup.style.display = 'none';
+      }
+    }
+    document.getElementById('search-confirm-btn').onclick = focusConceptBySearch;
+    document.getElementById('search-input').addEventListener('keyup', (e) => {
+      if (e.key === 'Enter') focusConceptBySearch();
+    });
+    </script>
+</body>
+</html>
